@@ -1,5 +1,5 @@
 {
-  "name": "mcp-proxy",
+  "name": "mcp-proxy-auth",
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
@@ -16,7 +16,7 @@
     "proxy"
   ],
   "type": "module",
-  "author": "Frank Fiegel <frank@glama.ai>",
+  "author": "lakhvinder singh <frank@glama.ai>",
   "license": "MIT",
   "description": "A TypeScript SSE proxy for MCP servers that use stdio transport.",
   "module": "dist/index.js",
@@ -28,9 +28,9 @@
     "yargs": "^17.7.2"
   },
   "repository": {
-    "url": "https://github.com/punkpeye/mcp-proxy"
+    "url": "https://github.com/lkm1developer/mcp-proxy"
   },
-  "homepage": "https://glama.ai/mcp",
+  "homepage": "",
   "release": {
     "branches": [
       "main"
