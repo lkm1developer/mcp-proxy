@@ -7,10 +7,10 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { EventSource } from "eventsource";
 import { setTimeout } from "node:timers";
 import { StdioClientTransport } from "../StdioClientTransport.js";
-import util from "node:util";
+import * as util from "node:util";
 import { startSSEServer } from "../startSSEServer.js";
 import { proxyServer } from "../proxyServer.js";
-
+import 'dotenv/config'
 util.inspect.defaultOptions.depth = 8;
 
 if (!("EventSource" in global)) {
@@ -48,6 +48,11 @@ const argv = await yargs(hideBin(process.argv))
       describe: "The port to listen on for SSE",
       default: 8080,
     },
+    apiKeyHeaderName: {
+      type: "string",
+      describe: "Header name for the API key (default: x-api-key)",
+      default: "x-api-key",
+    },
   })
   .help()
   .parseAsync();
@@ -66,6 +71,40 @@ const connect = async (client: Client) => {
   });
 
   await client.connect(transport);
+};
+
+// Function to verify API key from remote authentication server
+const verifyApiKey = async (apiKey: string, authServerUrl: string) => {
+  if (!authServerUrl) return null;
+  
+  try {
+    const response = await fetch(`${authServerUrl}?apiKey=${encodeURIComponent(apiKey)}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      console.error(`Auth server returned status: ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (data.valid) {
+      return {
+        userId: data.userId || `user-${apiKey.substring(0, 8)}`,
+        permissions: data.permissions || [],
+        env: data.env || {}
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("API key verification error:", error);
+    return null;
+  }
 };
 
 const proxy = async () => {
@@ -89,9 +128,36 @@ const proxy = async () => {
   const serverCapabilities = client.getServerCapabilities() as {};
 
   console.info("starting the SSE server on port %d", argv.port);
+  
+  // Get authentication server URL from environment variable
+  const authServerUrl = process.env.AUTH_SERVER_URL;
+  
+  // Setup remote API key verification
+  let remoteVerification = false;
+  if (authServerUrl) {
+    remoteVerification = true;
+    console.info(`Remote API key verification enabled (URL: ${authServerUrl})`);
+  } else {
+    console.warn("AUTH_SERVER_URL environment variable not set. API key verification will be done locally.");
+  }
 
   await startSSEServer({
-    createServer: async () => {
+    createServer: async (_req, userId, env) => {
+      console.info(`Creating server for user: ${userId || 'anonymous'}`);
+      
+      if (env) {
+        console.info(`Using custom environment variables for this session`);
+        
+        // Apply the environment variables from the API to the current process.env
+        // This will affect the environment for this specific request
+        Object.entries(env).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            process.env[key] = value.toString();
+          }
+        });
+      }
+      
+      // Create the server with the updated environment
       const server = new Server(serverVersion, {
         capabilities: serverCapabilities,
       });
@@ -106,7 +172,27 @@ const proxy = async () => {
     },
     port: argv.port,
     endpoint: argv.endpoint as `/${string}`,
+    apiKeyHeaderName: argv.apiKeyHeaderName,
+    // Custom authentication handler for remote verification
+    authHandler: async (requestApiKey: string) => {
+      if (!requestApiKey) return null;
+      
+      // Verify API key with remote server
+      if (remoteVerification) {
+        return await verifyApiKey(requestApiKey, authServerUrl as string);
+      }
+      
+      // If no remote verification, just accept any API key
+      return { userId: `user-${requestApiKey.substring(0, 8)}` };
+    }
   });
+
+  console.info(`API key authentication enabled (header: ${argv.apiKeyHeaderName})`);
+  if (remoteVerification) {
+    console.info(`Using remote verification server at ${authServerUrl}`);
+  } else {
+    console.info(`No remote verification server configured. All API keys will be accepted.`);
+  }
 };
 
 const main = async () => {

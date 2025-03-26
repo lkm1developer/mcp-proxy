@@ -23,6 +23,7 @@
   "types": "dist/index.d.ts",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.0",
+    "dotenv": "^16.4.7",
     "eventsource": "^3.0.5",
     "yargs": "^17.7.2"
   },
