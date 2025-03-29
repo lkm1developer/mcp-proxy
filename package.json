@@ -1,6 +1,6 @@
 {
   "name": "mcp-proxy-auth",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsup",
@@ -16,7 +16,7 @@
     "proxy"
   ],
   "type": "module",
-  "author": "lakhvinder singh <frank@glama.ai>",
+  "author": "lakhvinder singh <lkm1developer@gmail.com>",
   "license": "MIT",
   "description": "A TypeScript SSE proxy for MCP servers that use stdio transport.",
   "module": "dist/index.js",
